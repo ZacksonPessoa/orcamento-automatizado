@@ -1,10 +1,10 @@
-from typing import Any, Dict, List
-
-
-def process_pricing(raw_text: str) -> Dict[str, Any]:
-    """Processa texto extraído e retorna estrutura de preços (placeholder)."""
+def build_quote(extracted: dict) -> dict:
+    # Protótipo: ainda sem seu banco real.
+    # Aqui vamos plugar a consulta no seu banco e regras.
     return {
-        "items": [],
-        "totals": {},
-        "raw_text": raw_text,
+        "currency": "BRL",
+        "total": 0.0,
+        "notes": "Protótipo: motor de preço será conectado ao banco.",
+        "confidence": extracted.get("confidence", 0.0),
+        "items": extracted.get("items", []),
     }

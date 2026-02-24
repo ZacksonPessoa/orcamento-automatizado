@@ -1,44 +1,41 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
   api:
     build: ./api
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
     ports:
       - "8000:8000"
-    env_file: .env
     volumes:
-      - ./storage/uploads:/app/storage/uploads
-    depends_on:
-      - db
-    restart: unless-stopped
+      - ./storage/uploads:/data/uploads
+      - ./secrets:/secrets:ro
 
   worker:
     build: ./worker
     env_file: .env
-    volumes:
-      - ./storage/uploads:/app/storage/uploads
     depends_on:
-      - db
+      - postgres
       - redis
-    restart: unless-stopped
-
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-orcamento}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
+      - ./storage/uploads:/data/uploads
+      - ./secrets:/secrets:ro
 
 volumes:
-  postgres_data:
+  pgdata:
