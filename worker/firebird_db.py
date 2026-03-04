@@ -8,9 +8,9 @@ from typing import Any
 
 
 def _to_jsonable(v: Any) -> Any:
-    """Converte Decimal e outros tipos não serializáveis em JSON para número/string."""
+    """Converte Decimal e outros tipos não serializáveis em JSON. Para preço, str evita arredondamento."""
     if isinstance(v, Decimal):
-        return float(v)  # ou str(v) se quiser precisão exata
+        return str(v)
     return v
 
 # Configuração padrão; pode ser sobrescrita por .env
@@ -23,6 +23,8 @@ CHARSET = os.getenv("FIREBIRD_CHARSET", "WIN1252")
 # Colunas de preço na fc03000 (ajuste se no seu banco tiver outros nomes)
 COL_PRECO_COMPRA = os.getenv("FIREBIRD_COL_PRECO_COMPRA", "PRCOMN")
 COL_PRECO_VENDA = os.getenv("FIREBIRD_COL_PRECO_VENDA", "PRVEN")
+# Código do produto (opcional); se setado, retorna como CODIGO no dict
+COL_CODIGO = os.getenv("FIREBIRD_COL_CODIGO", "").strip() or None
 
 
 def get_connection():
@@ -42,13 +44,21 @@ def _campos_preco():
     return [COL_PRECO_COMPRA, COL_PRECO_VENDA]
 
 
+def _campos_select():
+    """Campos do SELECT (inclui código do produto se FIREBIRD_COL_CODIGO estiver definido)."""
+    campos = ["DESCR", "UNIDA", "UNIRC"] + _campos_preco()
+    if COL_CODIGO:
+        campos.append(f"{COL_CODIGO} AS CODIGO")
+    return campos
+
+
 def query_fc03000(limite: int | None = None) -> list[dict[str, Any]]:
     """
     Consulta a tabela fc03000 e retorna:
     DESCR (descrição), UNIDA (unidade cadastrada), UNIRC (unidade receita),
     preço de compra, preço de venda (nomes das colunas configuráveis por FIREBIRD_COL_*).
     """
-    campos = ["DESCR", "UNIDA", "UNIRC"] + _campos_preco()
+    campos = _campos_select()
     con = get_connection()
     try:
         cur = con.cursor()
@@ -70,17 +80,19 @@ def query_fc03000(limite: int | None = None) -> list[dict[str, Any]]:
 
 def query_fc03000_por_descricao(descricao: str, limite: int = 50) -> list[dict[str, Any]]:
     """
-    Busca na fc03000 por descrição (DESCR) contendo o texto informado.
-    Retorna os mesmos campos: DESCR, UNIDA, UNIRC, PROCMN, PRVEN.
+    Busca na fc03000 por descrição (DESCR). CONTAINING com parâmetro (sem f-string no termo).
+    Retorna DESCR, UNIDA, UNIRC, preços e opcionalmente CODIGO.
     """
-    campos = ["DESCR", "UNIDA", "UNIRC"] + _campos_preco()
+    campos = _campos_select()
     sel = ", ".join(campos)
+    # Sempre parâmetro no termo de busca (evita aspas/injeção no texto do OCR)
+    termo = (descricao or "").strip()
     con = get_connection()
     try:
         cur = con.cursor()
         cur.execute(
-            f"SELECT FIRST {int(limite)} {sel} FROM fc03000 WHERE DESCR CONTAINING ?",
-            (descricao.strip(),),
+            f"SELECT FIRST {int(limite)} {sel} FROM fc03000 WHERE UPPER(DESCR) CONTAINING UPPER(?)",
+            (termo,),
         )
         desc = cur.description
         rows = cur.fetchall()

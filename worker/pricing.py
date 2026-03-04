@@ -1,9 +1,13 @@
+import re
 from firebird_db import query_fc03000_por_descricao
 
 
-def _normalizar_nome(nome: str) -> str:
-    """Upper e strip; opcional: remover acentos (unidecode) depois."""
-    return (nome or "").upper().strip()
+def _normalizar_nome(nome: str, max_chars: int = 25) -> str:
+    """Upper, remove múltiplos espaços, limita tamanho (melhor match na fc03000)."""
+    s = (nome or "").strip()
+    s = re.sub(r"\s+", " ", s).strip()
+    s = s.upper()[:max_chars]
+    return s
 
 
 def build_quote(extracted: dict) -> dict:
@@ -23,12 +27,18 @@ def build_quote(extracted: dict) -> dict:
             item_out = {"name": name, "qty": qty}
         else:
             name = item.get("name") or item.get("nome") or ""
-            qty = item.get("qty", 1) or 1
+            raw_qty = item.get("qty", 1)
+            try:
+                qty = max(1, int(raw_qty))
+            except (TypeError, ValueError):
+                qty = 1
             item_out = dict(item)
 
+        item_out["qty"] = qty
         nome_norm = _normalizar_nome(name)
         preco_venda = None
         match_descr = None
+        codigo = None
 
         if nome_norm:
             matches = query_fc03000_por_descricao(nome_norm, limite=5)
@@ -36,11 +46,13 @@ def build_quote(extracted: dict) -> dict:
                 primeiro = matches[0]
                 preco_venda = primeiro.get("PRVEN")
                 match_descr = primeiro.get("DESCR")
+                codigo = primeiro.get("CODIGO")
 
         item_out["preco_venda"] = preco_venda
         item_out["match_descr"] = match_descr
+        item_out["codigo"] = codigo
         if preco_venda is not None:
-            total += float(preco_venda) * float(qty)
+            total += float(preco_venda) * qty
         items.append(item_out)
 
     return {
