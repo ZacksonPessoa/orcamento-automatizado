@@ -28,17 +28,17 @@ def get_connection():
 def query_fc03000(limite: int | None = None) -> list[dict[str, Any]]:
     """
     Consulta a tabela fc03000 e retorna:
-    DESCR (descrição), UNID (unidade cadastrada), UNIRC (unidade receita),
+    DESCR (descrição), UNIDA (unidade cadastrada), UNIRC (unidade receita),
     PROCMN (preço de compra), PRVEN (preço de venda).
     """
     con = get_connection()
     try:
         cur = con.cursor()
-        sql = "SELECT DESCR, UNID, UNIRC, PROCMN, PRVEN FROM fc03000"
+        sql = "SELECT DESCR, UNIDA, UNIRC, PROCMN, PRVEN FROM fc03000"
         if limite is not None:
-            sql = f"SELECT FIRST {int(limite)} DESCR, UNID, UNIRC, PROCMN, PRVEN FROM fc03000"
+            sql = f"SELECT FIRST {int(limite)} DESCR, UNIDA, UNIRC, PROCMN, PRVEN FROM fc03000"
         cur.execute(sql)
-        colunas = ["DESCR", "UNID", "UNIRC", "PROCMN", "PRVEN"]
+        colunas = ["DESCR", "UNIDA", "UNIRC", "PROCMN", "PRVEN"]
         rows = cur.fetchall()
         cur.close()
         return [
@@ -52,18 +52,18 @@ def query_fc03000(limite: int | None = None) -> list[dict[str, Any]]:
 def query_fc03000_por_descricao(descricao: str, limite: int = 50) -> list[dict[str, Any]]:
     """
     Busca na fc03000 por descrição (DESCR) contendo o texto informado.
-    Retorna os mesmos campos: DESCR, UNID, UNIRC, PROCMN, PRVEN.
+    Retorna os mesmos campos: DESCR, UNIDA, UNIRC, PROCMN, PRVEN.
     """
     con = get_connection()
     try:
         cur = con.cursor()
         # CONTAINING no Firebird é case-insensitive
         cur.execute(
-            f"SELECT FIRST {int(limite)} DESCR, UNID, UNIRC, PROCMN, PRVEN FROM fc03000 "
+            f"SELECT FIRST {int(limite)} DESCR, UNIDA, UNIRC, PROCMN, PRVEN FROM fc03000 "
             "WHERE DESCR CONTAINING ?",
             (descricao.strip(),),
         )
-        colunas = ["DESCR", "UNID", "UNIRC", "PROCMN", "PRVEN"]
+        colunas = ["DESCR", "UNIDA", "UNIRC", "PROCMN", "PRVEN"]
         rows = cur.fetchall()
         cur.close()
         return [dict(zip(colunas, row)) for row in rows]
