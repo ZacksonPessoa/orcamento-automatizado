@@ -17,8 +17,11 @@ export default function ResultPanel({ result }) {
 
   const textToCopy = () => {
     const lines = items.map((i) => {
+      const qty = i.qty ?? 1;
       const preco = i.preco_venda != null ? formatPrice(i.preco_venda) : '—';
-      return `${i.name || '—'} | Qtd: ${i.qty ?? 1} | Preço: ${preco} | Match: ${i.match_descr || '—'}`;
+      const sub = i.preco_venda != null && qty ? (parseFloat(i.preco_venda) * qty) : null;
+      const subStr = sub != null && !Number.isNaN(sub) ? formatPrice(sub) : '—';
+      return `${i.name || '—'} | Qtd: ${qty} | Preço: ${preco} | Subtotal: ${subStr} | Match: ${i.match_descr || '—'}`;
     });
     lines.push('---');
     lines.push(`Total: ${formatPrice(total)} (${currency})`);
@@ -48,18 +51,25 @@ export default function ResultPanel({ result }) {
                   <th className="pb-2 pr-4">Item</th>
                   <th className="pb-2 pr-4">Qtd</th>
                   <th className="pb-2 pr-4">Preço</th>
+                  <th className="pb-2 pr-4">Subtotal</th>
                   <th className="pb-2">Match (FC03000)</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((row, i) => (
-                  <tr key={i} className="border-b border-slate-100">
-                    <td className="py-2 pr-4 font-medium text-slate-800">{row.name || '—'}</td>
-                    <td className="py-2 pr-4 text-slate-700">{row.qty ?? 1}</td>
-                    <td className="py-2 pr-4">{formatPrice(row.preco_venda)}</td>
-                    <td className="py-2 text-slate-600">{row.match_descr || '—'}</td>
-                  </tr>
-                ))}
+                {items.map((row, i) => {
+                  const qty = row.qty ?? 1;
+                  const preco = row.preco_venda != null ? (typeof row.preco_venda === 'string' ? parseFloat(row.preco_venda) : row.preco_venda) : null;
+                  const subtotal = preco != null && !Number.isNaN(preco) ? preco * qty : null;
+                  return (
+                    <tr key={i} className="border-b border-slate-100">
+                      <td className="py-2 pr-4 font-medium text-slate-800">{row.name || '—'}</td>
+                      <td className="py-2 pr-4 text-slate-700">{qty}</td>
+                      <td className="py-2 pr-4">{formatPrice(row.preco_venda)}</td>
+                      <td className="py-2 pr-4">{formatPrice(subtotal)}</td>
+                      <td className="py-2 text-slate-600">{row.match_descr || '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
