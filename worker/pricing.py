@@ -1,5 +1,9 @@
 import re
-from firebird_db import query_fc03000_por_descricao
+
+try:
+    from .firebird_db import query_fc03000_por_descricao
+except ImportError:
+    from firebird_db import query_fc03000_por_descricao
 
 
 def _normalizar_nome(nome: str, max_chars: int = 25) -> str:

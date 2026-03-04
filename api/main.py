@@ -1,5 +1,6 @@
 import os, json, uuid
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from db import Base, engine, SessionLocal
 from models import QuoteRequest
@@ -10,11 +11,21 @@ from rq import Queue
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Orçamento Automatizado - Protótipo")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 redis_conn = Redis.from_url(os.getenv("REDIS_URL"))
 q = Queue("quotes", connection=redis_conn)
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
+
+ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".pdf", ".txt"]
+PROVIDERS = ("auto", "google", "aws", "tesseract")
 
 def db_session():
     db = SessionLocal()
@@ -24,11 +35,18 @@ def db_session():
         db.close()
 
 @app.post("/upload")
-async def upload_receita(file: UploadFile = File(...)):
+async def upload_receita(
+    file: UploadFile = File(...),
+    provider: str = Form("auto"),
+):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".pdf"]:
-        raise HTTPException(400, "Envie JPG/PNG/PDF")
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(400, "Envie JPG, PNG, PDF ou TXT")
+
+    prov = (provider or "auto").lower()
+    if prov not in PROVIDERS:
+        prov = "auto"
 
     req_id = str(uuid.uuid4())
     path = os.path.join(UPLOAD_DIR, f"{req_id}{ext}")
@@ -37,15 +55,14 @@ async def upload_receita(file: UploadFile = File(...)):
         f.write(await file.read())
 
     db = SessionLocal()
-    qr = QuoteRequest(id=req_id, file_path=path, status="RECEIVED")
+    qr = QuoteRequest(id=req_id, file_path=path, status="RECEIVED", provider=prov)
     db.add(qr)
     db.commit()
     db.close()
 
-    # Enfileira processamento
     q.enqueue("worker.process_quote", req_id)
 
-    return {"id": req_id, "status": "RECEIVED"}
+    return {"request_id": req_id, "id": req_id, "status": "RECEIVED"}
 
 @app.get("/status/{req_id}")
 def status(req_id: str):
@@ -66,6 +83,7 @@ def result(req_id: str):
     if qr.status != "DONE":
         raise HTTPException(400, f"Ainda não pronto (status={qr.status})")
     return {
+        "status": "DONE",
         "id": qr.id,
         "ocr_text": qr.ocr_text,
         "extracted": json.loads(qr.extracted_json or "{}"),

@@ -9,6 +9,7 @@ class QuoteRequest(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     status = Column(String, default="RECEIVED")  # RECEIVED | PROCESSING | DONE | ERROR
     file_path = Column(String, nullable=False)
+    provider = Column(String, nullable=True)  # auto | google | aws | tesseract
     ocr_text = Column(Text, nullable=True)
     extracted_json = Column(Text, nullable=True)  # JSON string
     quote_json = Column(Text, nullable=True)      # JSON string
