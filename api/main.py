@@ -1,5 +1,5 @@
 import os, json, uuid
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from db import Base, engine, SessionLocal
@@ -24,8 +24,7 @@ q = Queue("quotes", connection=redis_conn)
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
 
-ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".pdf", ".txt"]
-PROVIDERS = ("auto", "google", "aws", "tesseract")
+ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt"]
 
 def db_session():
     db = SessionLocal()
@@ -35,18 +34,11 @@ def db_session():
         db.close()
 
 @app.post("/upload")
-async def upload_receita(
-    file: UploadFile = File(...),
-    provider: str = Form("auto"),
-):
+async def upload_receita(file: UploadFile = File(...)):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXT:
-        raise HTTPException(400, "Envie JPG, PNG, PDF ou TXT")
-
-    prov = (provider or "auto").lower()
-    if prov not in PROVIDERS:
-        prov = "auto"
+        raise HTTPException(400, "Envie PNG, JPG, WEBP, PDF ou TXT")
 
     req_id = str(uuid.uuid4())
     path = os.path.join(UPLOAD_DIR, f"{req_id}{ext}")
@@ -55,7 +47,7 @@ async def upload_receita(
         f.write(await file.read())
 
     db = SessionLocal()
-    qr = QuoteRequest(id=req_id, file_path=path, status="RECEIVED", provider=prov)
+    qr = QuoteRequest(id=req_id, file_path=path, status="RECEIVED")
     db.add(qr)
     db.commit()
     db.close()

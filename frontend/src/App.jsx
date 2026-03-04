@@ -45,12 +45,12 @@ export default function App() {
     return stopPolling;
   }, [requestId, status]);
 
-  const handleProcess = async ({ file, provider }) => {
+  const handleProcess = async ({ file }) => {
     setError(null);
     setResult(null);
     setStatus('RECEIVED');
     try {
-      const data = await uploadFile(file, provider);
+      const data = await uploadFile(file);
       const id = data.request_id ?? data.id;
       if (!id) throw new Error('Resposta sem request_id');
       setRequestId(id);

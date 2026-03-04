@@ -1,7 +1,8 @@
 import os
 
 def run_ocr(file_path: str) -> str:
-    provider = os.getenv("OCR_PROVIDER", "google").lower()
+    # MVP: use OCR_PROVIDER=TESSERACT no .env; Google/AWS depois sem mudar o front
+    provider = os.getenv("OCR_PROVIDER", "tesseract").lower()
 
     if provider == "google":
         return _google_vision(file_path)

@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from ocr import run_ocr
+from pdf_utils import get_text_from_pdf
 from pricing import build_quote
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -50,23 +51,19 @@ def process_quote(req_id: str):
         db.commit()
 
         file_path = qr.file_path or ""
-        if file_path.lower().endswith(".txt"):
+        path_lower = file_path.lower()
+        if path_lower.endswith(".txt"):
             with open(file_path, encoding="utf-8", errors="replace") as f:
                 text = f.read()
+        elif path_lower.endswith(".pdf"):
+            text = get_text_from_pdf(file_path)
+            if not (text or "").strip():
+                text = ""  # PDF escaneado: fallback OCR pode ser adicionado depois
         else:
-            prev = os.environ.get("OCR_PROVIDER")
-            prov = (qr.provider or "auto").strip().lower()
-            if prov in ("google", "aws", "tesseract"):
-                os.environ["OCR_PROVIDER"] = prov
-            try:
-                text = run_ocr(file_path)
-            finally:
-                if prev is not None:
-                    os.environ["OCR_PROVIDER"] = prev
-                elif prov in ("google", "aws", "tesseract"):
-                    os.environ.pop("OCR_PROVIDER", None)
+            # Imagem: provider vem do .env (ex.: OCR_PROVIDER=TESSERACT)
+            text = run_ocr(file_path)
 
-        qr.ocr_text = text
+        qr.ocr_text = text or ""
 
         # Extração: lista de itens com "name" (e opcionalmente "qty") para build_quote
         # buscar preço na fc03000 por descrição (PRVEN)
